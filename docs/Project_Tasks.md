@@ -7,7 +7,7 @@ This document outlines all tasks required to complete the ServiceNow Ticket Auto
 ## Project Overview
 
 - **Project Name**: ServiceNow Ticket Automation System
-- **Technology Stack**: React 18 + Node.js + TypeScript + PostgreSQL
+- **Technology Stack**: React 18 + Vite + Tailwind CSS + Shadcn/ui + Node.js + TypeScript + PostgreSQL
 - **Timeline**: 6 weeks for documentation and setup
 - **Team Size**: 4-6 developers
 - **Current Status**: Documentation phase (83% complete)
@@ -210,6 +210,23 @@ This document outlines all tasks required to complete the ServiceNow Ticket Auto
 - [ ] Create environment files
 - [ ] Set up linting and formatting
 
+---
+
+### Task 2.4: Frontend Technology Setup
+**Priority**: HIGH  
+**Owner**: Frontend Developer  
+**Timeline**: 2-3 days  
+**Dependencies**: Task 2.3 (Project Structure)
+
+#### Subtasks:
+- [ ] Set up Vite with React and TypeScript
+- [ ] Configure Tailwind CSS
+- [ ] Install and configure Shadcn/ui
+- [ ] Set up component library structure
+- [ ] Create base UI components
+- [ ] Configure development environment
+- [ ] Set up testing framework
+
 #### Deliverables:
 - Complete project structure
 - Package.json files
@@ -221,6 +238,20 @@ This document outlines all tasks required to complete the ServiceNow Ticket Auto
 - Package.json files configured
 - TypeScript setup complete
 - Linting and formatting configured
+
+#### Deliverables:
+- Vite configuration
+- Tailwind CSS configuration
+- Shadcn/ui setup
+- Base component library
+- Development environment
+
+#### Acceptance Criteria:
+- Vite development server running
+- Tailwind CSS working with hot reload
+- Shadcn/ui components available
+- TypeScript compilation working
+- Testing framework configured
 
 ---
 
@@ -387,6 +418,7 @@ graph TD
 | Role | Primary Tasks | Secondary Tasks |
 |------|---------------|-----------------|
 | **Backend Developer** | Database Schema, API Specs, Error Handling | Database Migration, Performance Benchmarks |
+| **Frontend Developer** | Vite Setup, Tailwind Config, Shadcn/ui Components | UI/UX Design, Component Library |
 | **ServiceNow Developer** | ServiceNow Integration | - |
 | **DevOps Engineer** | Environment Setup, Deployment Guide | Security Implementation, Monitoring Strategy |
 | **Security Engineer** | Security Implementation | - |
@@ -405,6 +437,7 @@ graph TD
 - Security Implementation Guide (3-4 days)
 - Create Missing ADRs (2-3 days)
 - Set up Project Structure (1-2 days)
+- Frontend Technology Setup (2-3 days)
 
 ### Week 4-5: Infrastructure
 - Deployment Guide (3-4 days)

@@ -22,7 +22,7 @@ Implement comprehensive testing and maintainable code.
 
 The project includes:
 
-Development of a React 18-based web frontend with Material UI and Balance UI.
+Development of a React 18-based web frontend with Vite, Tailwind CSS, and Shadcn/ui.
 
 Implementation of state management using MobX.
 

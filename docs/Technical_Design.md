@@ -4,7 +4,7 @@
 
 The system will follow a multi-tier architecture:
 
-Presentation Tier: React 18 frontend using Material UI and Balance UI for UI components and MobX for state management.
+Presentation Tier: React 18 frontend using Vite, Tailwind CSS, and Shadcn/ui for UI components and MobX for state management.
 
 API Tier: A Node.js backend service with Express.js and TypeScript responsible for handling requests from the frontend, authenticating users via Okta, communicating with ServiceNow, and managing data storage.
 
@@ -64,7 +64,7 @@ Returns an array of the newly created ticket numbers.
 
 ## 5. Technologies Used
 
-Frontend: React 18, Material UI, Balance UI, MobX, React Testing Library, Jest, ESLint, Prettier.
+Frontend: React 18, Vite, Tailwind CSS, Shadcn/ui, MobX, React Testing Library, Jest, ESLint, Prettier.
 
 Backend: Node.js, Express.js, TypeScript, TypeORM, Axios, Jest, ESLint, Prettier.
 

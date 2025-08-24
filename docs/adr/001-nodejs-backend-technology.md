@@ -15,7 +15,7 @@ The ServiceNow Ticket Automation project requires a backend technology that can 
 - Real-time status polling and updates
 - Comprehensive testing and deployment capabilities
 
-The frontend is already decided to use React 18 with TypeScript, and we need to choose between Node.js and Python for the backend technology.
+The frontend is already decided to use React 18 with Vite, Tailwind CSS, Shadcn/ui, and TypeScript, and we need to choose between Node.js and Python for the backend technology.
 
 ## Decision
 
@@ -31,6 +31,7 @@ The frontend is already decided to use React 18 with TypeScript, and we need to 
 - Consistent development patterns and tooling
 - Single language expertise requirement for the development team
 - Easier debugging and development workflow
+- Vite's fast build times and hot module replacement
 
 ### 2. API Development Strengths
 
@@ -63,10 +64,11 @@ The frontend is already decided to use React 18 with TypeScript, and we need to 
 
 **Node.js ecosystem accelerates development**:
 - Vast npm ecosystem with packages for every requirement
-- Hot reloading capabilities for fast development feedback
+- Vite's lightning-fast hot module replacement for instant feedback
 - Excellent TypeScript support with strong IDE integration
 - Comprehensive testing tools (Jest, Supertest) that work seamlessly
 - Strong community support and documentation
+- Tailwind CSS utility-first approach for rapid UI development
 
 ### 6. Database Integration
 

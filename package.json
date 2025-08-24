@@ -36,6 +36,9 @@
     "servicenow",
     "ticket-automation",
     "react",
+    "vite",
+    "tailwindcss",
+    "shadcn-ui",
     "nodejs",
     "typescript"
   ],

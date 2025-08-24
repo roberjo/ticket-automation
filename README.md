@@ -2,7 +2,10 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.0-purple.svg)](https://vitejs.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.0-38B2AC.svg)](https://tailwindcss.com/)
+[![Shadcn/ui](https://img.shields.io/badge/Shadcn/ui-0.0-black.svg)](https://ui.shadcn.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue.svg)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
@@ -16,7 +19,7 @@ A comprehensive system that automates the creation of ServiceNow Request tickets
 - 🎫 **Multi-Ticket Creation** - Create multiple ServiceNow tickets from single request
 - 📊 **Real-time Status Tracking** - Monitor ticket status with automatic updates
 - 🔄 **ServiceNow Integration** - Seamless integration with ServiceNow REST API
-- 📱 **Responsive Design** - Modern UI with Material UI and Balance UI
+- 📱 **Responsive Design** - Modern UI with Tailwind CSS and Shadcn/ui components
 - 🧪 **Comprehensive Testing** - Unit, integration, and end-to-end testing
 - 🚀 **Production Ready** - Docker support, CI/CD pipeline, and monitoring
 
@@ -27,7 +30,8 @@ A comprehensive system that automates the creation of ServiceNow Request tickets
 | Component | Technology | Version |
 |-----------|------------|---------|
 | **Frontend** | React 18 + TypeScript | Latest |
-| **UI Framework** | Material UI + Balance UI | Latest |
+| **Build Tool** | Vite | 5.0+ |
+| **UI Framework** | Tailwind CSS + Shadcn/ui | 3.0+ |
 | **State Management** | MobX | Latest |
 | **Backend** | Node.js + Express.js + TypeScript | 18+ |
 | **Database** | PostgreSQL + TypeORM | 14+ |
@@ -193,8 +197,8 @@ npm run clean            # Clean build artifacts
 cd frontend
 
 # Development
-npm start                # Start development server (port 3000)
-npm run dev              # Start development server with hot reload
+npm run dev              # Start development server (port 3000)
+npm run preview          # Preview production build
 
 # Building
 npm run build            # Build for production
@@ -209,6 +213,7 @@ npm run test:ci          # Run tests in CI mode
 npm run lint             # Lint code
 npm run lint:fix         # Lint and fix issues
 npm run format           # Format code with Prettier
+npm run type-check       # TypeScript type checking
 ```
 
 #### Backend Commands
@@ -389,6 +394,7 @@ REACT_APP_ENABLE_DEBUG_MODE=true
 ### Architecture Decision Records (ADRs)
 
 - 📝 [ADR-001: Node.js Backend Technology](docs/adr/001-nodejs-backend-technology.md) - Backend technology selection
+- 🎨 [ADR-002: Frontend Technology Stack](docs/adr/002-frontend-technology-stack.md) - Frontend technology selection
 
 ### Additional Resources
 
@@ -505,9 +511,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Current Phase (Q1 2024)
 - [x] Project documentation and planning
 - [x] Technology stack selection
+- [x] Frontend technology stack (React + Vite + Tailwind + Shadcn/ui)
 - [ ] Database schema design
 - [ ] API specifications
 - [ ] ServiceNow integration guide
+- [ ] Frontend setup and component library
 
 ### Next Phase (Q2 2024)
 - [ ] Backend development
@@ -526,7 +534,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **ServiceNow** for their comprehensive API documentation
 - **Okta** for their authentication solutions
 - **React** and **Node.js** communities for excellent tooling
-- **Material UI** for the beautiful component library
+- **Tailwind CSS** and **Shadcn/ui** for the beautiful component library
 
 ---
 
