@@ -1,48 +1,121 @@
+/**
+ * Test Setup Configuration
+ * 
+ * This file configures the global test environment and provides necessary mocks
+ * for browser APIs that are not available in the Node.js test environment.
+ * It runs before all tests and sets up the testing infrastructure.
+ * 
+ * Purpose:
+ * - Import Jest DOM matchers for enhanced assertions
+ * - Mock browser APIs that don't exist in Node.js
+ * - Configure global test environment
+ * - Set up console logging for test debugging
+ * 
+ * Mocked APIs:
+ * - window.matchMedia: For responsive design testing
+ * - IntersectionObserver: For scroll-based animations
+ * - ResizeObserver: For responsive component behavior
+ * - window.scrollTo: For scroll behavior testing
+ * - console methods: For controlled logging during tests
+ */
+
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock window.matchMedia
+/**
+ * Mock window.matchMedia
+ * 
+ * This API is used by CSS media queries and responsive design libraries.
+ * In the Node.js test environment, this API doesn't exist, so we need to mock it.
+ * 
+ * The mock provides:
+ * - matches: Boolean indicating if the media query matches
+ * - media: The media query string
+ * - Event listener methods for media query changes
+ * - Both modern and deprecated API methods for compatibility
+ */
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
+    matches: false, // Default to false for most test scenarios
+    media: query, // Store the original query string
+    onchange: null, // Event handler for media query changes
+    addListener: vi.fn(), // deprecated - for older browser compatibility
+    removeListener: vi.fn(), // deprecated - for older browser compatibility
+    addEventListener: vi.fn(), // Modern event listener API
+    removeEventListener: vi.fn(), // Modern event listener API
+    dispatchEvent: vi.fn(), // Event dispatching capability
   })),
 });
 
-// Mock IntersectionObserver
+/**
+ * Mock IntersectionObserver
+ * 
+ * This API is used for detecting when elements enter/exit the viewport.
+ * Commonly used for lazy loading, infinite scrolling, and scroll-based animations.
+ * 
+ * The mock provides:
+ * - observe: Method to start observing an element
+ * - unobserve: Method to stop observing an element
+ * - disconnect: Method to stop observing all elements
+ */
 global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
+  observe: vi.fn(), // Mock function to observe an element
+  unobserve: vi.fn(), // Mock function to stop observing an element
+  disconnect: vi.fn(), // Mock function to disconnect all observations
 }));
 
-// Mock ResizeObserver
+/**
+ * Mock ResizeObserver
+ * 
+ * This API is used for detecting when elements change size.
+ * Commonly used for responsive components and layout adjustments.
+ * 
+ * The mock provides:
+ * - observe: Method to start observing element size changes
+ * - unobserve: Method to stop observing element size changes
+ * - disconnect: Method to stop observing all elements
+ */
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
+  observe: vi.fn(), // Mock function to observe element size changes
+  unobserve: vi.fn(), // Mock function to stop observing element size changes
+  disconnect: vi.fn(), // Mock function to disconnect all observations
 }));
 
-// Mock window.scrollTo
+/**
+ * Mock window.scrollTo
+ * 
+ * This API is used for programmatic scrolling.
+ * Commonly used in navigation, smooth scrolling, and scroll restoration.
+ * 
+ * The mock provides a simple function that can be called without errors
+ * during tests that involve scrolling behavior.
+ */
 Object.defineProperty(window, 'scrollTo', {
   writable: true,
-  value: vi.fn(),
+  value: vi.fn(), // Mock function for scroll behavior
 });
 
-// Mock console methods to reduce noise in tests
+/**
+ * Mock console methods
+ * 
+ * Provides controlled console logging during tests.
+ * Can be used to:
+ * - Reduce noise in test output
+ * - Capture and verify console messages
+ * - Debug test failures
+ * 
+ * Configuration:
+ * - Preserves original console methods by default
+ * - Can be uncommented to mock specific log levels
+ * - Useful for testing error handling and logging behavior
+ */
 global.console = {
-  ...console,
-  // Uncomment to ignore a specific log level
-  // log: vi.fn(),
-  // debug: vi.fn(),
-  // info: vi.fn(),
-  // warn: vi.fn(),
-  // error: vi.fn(),
+  ...console, // Preserve original console methods
+  // Uncomment to ignore a specific log level during tests
+  // log: vi.fn(), // Mock console.log
+  // debug: vi.fn(), // Mock console.debug
+  // info: vi.fn(), // Mock console.info
+  // warn: vi.fn(), // Mock console.warn
+  // error: vi.fn(), // Mock console.error
 };
