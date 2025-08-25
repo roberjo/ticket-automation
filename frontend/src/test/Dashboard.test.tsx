@@ -29,8 +29,8 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => {
 
 describe('Dashboard', () => {
   beforeEach(() => {
-    // Reset store state before each test
-    authStore.reset();
+    // Reset store state before each test by logging out
+    authStore.logout();
   });
 
   describe('Rendering', () => {
@@ -40,10 +40,13 @@ describe('Dashboard', () => {
         name: 'John Doe',
         email: 'john@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(testUser);
+      authStore.login(testUser);
 
       render(
         <TestWrapper>
@@ -62,11 +65,14 @@ describe('Dashboard', () => {
         name: 'Demo User',
         email: 'demo@example.com',
         role: 'admin',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(testUser);
-      authStore.enableDemoMode();
+      authStore.login(testUser);
+      // Demo mode is enabled by default
 
       render(
         <TestWrapper>
@@ -87,7 +93,7 @@ describe('Dashboard', () => {
         department: 'IT'
       };
 
-      authStore.setActiveUser(testUser);
+      authStore.login(testUser);
 
       render(
         <TestWrapper>
@@ -95,9 +101,9 @@ describe('Dashboard', () => {
         </TestWrapper>
       );
 
-      // Check for metric cards
+      // Check for metric cards (using getAllByText to handle duplicates)
       expect(screen.getByText(/Task Completion Rate/)).toBeInTheDocument();
-      expect(screen.getByText(/Average Task Duration/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Average Task Duration/)).toHaveLength(2); // One in metrics, one in chart
       expect(screen.getByText(/ServiceNow Ticket Duration/)).toBeInTheDocument();
       expect(screen.getByText(/Cycle Time/)).toBeInTheDocument();
     });
@@ -110,10 +116,13 @@ describe('Dashboard', () => {
         name: 'Admin User',
         email: 'admin@example.com',
         role: 'admin',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(adminUser);
+      authStore.login(adminUser);
 
       render(
         <TestWrapper>
@@ -124,7 +133,7 @@ describe('Dashboard', () => {
       expect(screen.getByText(/System Overview/)).toBeInTheDocument();
       expect(screen.getByText(/Total Tasks/)).toBeInTheDocument();
       expect(screen.getByText(/ServiceNow Tickets/)).toBeInTheDocument();
-      expect(screen.getByText(/Active Users/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Active Users/)).toHaveLength(2); // One in metrics, one in section
     });
 
     it('should show manager-specific content for manager users', () => {
@@ -133,10 +142,13 @@ describe('Dashboard', () => {
         name: 'Manager User',
         email: 'manager@example.com',
         role: 'manager',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(managerUser);
+      authStore.login(managerUser);
 
       render(
         <TestWrapper>
@@ -145,8 +157,8 @@ describe('Dashboard', () => {
       );
 
       expect(screen.getByText(/Team Management/)).toBeInTheDocument();
-      expect(screen.getByText(/Pending Approvals/)).toBeInTheDocument();
-      expect(screen.getByText(/Team Tasks/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Pending Approvals/)).toHaveLength(2); // One in metrics, one in section
+      expect(screen.getAllByText(/Team Tasks/)).toHaveLength(2); // One in metrics, one in section
     });
 
     it('should show basic content for regular users', () => {
@@ -155,10 +167,13 @@ describe('Dashboard', () => {
         name: 'Regular User',
         email: 'user@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(regularUser);
+      authStore.login(regularUser);
 
       render(
         <TestWrapper>
@@ -179,10 +194,13 @@ describe('Dashboard', () => {
         name: 'Test User',
         email: 'test@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(testUser);
+      authStore.login(testUser);
 
       render(
         <TestWrapper>
@@ -190,11 +208,11 @@ describe('Dashboard', () => {
         </TestWrapper>
       );
 
-      // Check for chart titles
-      expect(screen.getByText(/Task Activity Trends/)).toBeInTheDocument();
-      expect(screen.getByText(/Task Status Distribution/)).toBeInTheDocument();
-      expect(screen.getByText(/Average Task Duration/)).toBeInTheDocument();
-      expect(screen.getByText(/Task Creation Volume/)).toBeInTheDocument();
+      // Check for chart titles (using getAllByText to handle duplicates)
+      expect(screen.getAllByText(/Task Activity Trends/)).toHaveLength(1);
+      expect(screen.getAllByText(/Task Status Distribution/)).toHaveLength(1);
+      expect(screen.getAllByText(/Average Task Duration/)).toHaveLength(2); // One in metrics, one in chart
+      expect(screen.getAllByText(/Task Creation Volume/)).toHaveLength(1);
     });
   });
 });

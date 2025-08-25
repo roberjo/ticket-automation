@@ -3,26 +3,28 @@ import { authStore } from '@/stores/AuthStore';
 
 describe('AuthStore', () => {
   beforeEach(() => {
-    // Reset store state before each test
-    authStore.reset();
+    // Reset store state before each test by logging out
+    authStore.logout();
   });
 
   describe('User Management', () => {
-    it('should initialize with no active user', () => {
-      expect(authStore.activeUser).toBeNull();
-      expect(authStore.isAuthenticated).toBe(false);
+    it('should initialize with demo mode enabled', () => {
+      expect(authStore.isDemoMode).toBe(true);
     });
 
-    it('should set active user', () => {
+    it('should login user', () => {
       const testUser = {
         id: '1',
         name: 'Test User',
         email: 'test@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(testUser);
+      authStore.login(testUser);
 
       expect(authStore.activeUser).toEqual(testUser);
       expect(authStore.isAuthenticated).toBe(true);
@@ -34,10 +36,13 @@ describe('AuthStore', () => {
         name: 'Test User',
         email: 'test@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(testUser);
+      authStore.login(testUser);
       expect(authStore.isAuthenticated).toBe(true);
 
       authStore.logout();
@@ -48,69 +53,85 @@ describe('AuthStore', () => {
 
   describe('Demo Mode', () => {
     it('should have demo users available', () => {
-      expect(authStore.demoUsers).toHaveLength(3);
-      expect(authStore.demoUsers[0]).toHaveProperty('name');
-      expect(authStore.demoUsers[0]).toHaveProperty('role');
+      expect(authStore.demoUsers).toHaveLength(4);
+      expect(authStore.demoUsers[0]).toHaveProperty('user');
+      expect(authStore.demoUsers[0].user).toHaveProperty('name');
+      expect(authStore.demoUsers[0].user).toHaveProperty('role');
     });
 
-    it('should enable demo mode', () => {
-      authStore.enableDemoMode();
-      expect(authStore.isDemoMode).toBe(true);
-    });
+    it('should toggle demo mode', () => {
+      const initialDemoMode = authStore.isDemoMode;
+      
+      authStore.toggleDemoMode();
+      expect(authStore.isDemoMode).toBe(!initialDemoMode);
 
-    it('should disable demo mode', () => {
-      authStore.enableDemoMode();
-      expect(authStore.isDemoMode).toBe(true);
-
-      authStore.disableDemoMode();
-      expect(authStore.isDemoMode).toBe(false);
+      authStore.toggleDemoMode();
+      expect(authStore.isDemoMode).toBe(initialDemoMode);
     });
   });
 
-  describe('Role-based Access', () => {
-    it('should identify admin users', () => {
+  describe('User Impersonation', () => {
+    it('should allow admin to impersonate users', () => {
       const adminUser = {
         id: '1',
         name: 'Admin User',
         email: 'admin@example.com',
         role: 'admin',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(adminUser);
-      expect(authStore.isAdmin).toBe(true);
-      expect(authStore.isManager).toBe(false);
-      expect(authStore.isUser).toBe(false);
-    });
-
-    it('should identify manager users', () => {
-      const managerUser = {
-        id: '2',
-        name: 'Manager User',
-        email: 'manager@example.com',
-        role: 'manager',
-        department: 'IT'
-      };
-
-      authStore.setActiveUser(managerUser);
-      expect(authStore.isAdmin).toBe(false);
-      expect(authStore.isManager).toBe(true);
-      expect(authStore.isUser).toBe(false);
-    });
-
-    it('should identify regular users', () => {
       const regularUser = {
-        id: '3',
+        id: '2',
         name: 'Regular User',
         email: 'user@example.com',
         role: 'user',
-        department: 'IT'
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
       };
 
-      authStore.setActiveUser(regularUser);
-      expect(authStore.isAdmin).toBe(false);
-      expect(authStore.isManager).toBe(false);
-      expect(authStore.isUser).toBe(true);
+      authStore.login(adminUser);
+      expect(authStore.canImpersonate).toBe(true);
+
+      authStore.impersonateUser(regularUser);
+      expect(authStore.activeUser).toEqual(regularUser);
+      expect(authStore.isImpersonating).toBe(true);
+    });
+
+    it('should stop impersonation', () => {
+      const adminUser = {
+        id: '1',
+        name: 'Admin User',
+        email: 'admin@example.com',
+        role: 'admin',
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
+      };
+
+      const regularUser = {
+        id: '2',
+        name: 'Regular User',
+        email: 'user@example.com',
+        role: 'user',
+        department: 'IT',
+        isActive: true,
+        createdAt: new Date(),
+        lastLogin: new Date()
+      };
+
+      authStore.login(adminUser);
+      authStore.impersonateUser(regularUser);
+      expect(authStore.isImpersonating).toBe(true);
+
+      authStore.stopImpersonation();
+      expect(authStore.activeUser).toEqual(adminUser);
+      expect(authStore.isImpersonating).toBe(false);
     });
   });
 });
