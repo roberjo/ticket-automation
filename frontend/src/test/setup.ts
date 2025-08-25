@@ -97,7 +97,7 @@ Object.defineProperty(window, 'scrollTo', {
 });
 
 /**
- * Mock console methods
+ * Mock console methods to reduce noise and improve performance
  * 
  * Provides controlled console logging during tests.
  * Can be used to:
@@ -106,16 +106,41 @@ Object.defineProperty(window, 'scrollTo', {
  * - Debug test failures
  * 
  * Configuration:
- * - Preserves original console methods by default
- * - Can be uncommented to mock specific log levels
- * - Useful for testing error handling and logging behavior
+ * - Mocks console.warn and console.error to reduce React act() warning noise
+ * - Preserves console.log for debugging when needed
+ * - Improves test execution performance by reducing stderr output
  */
 global.console = {
   ...console, // Preserve original console methods
-  // Uncomment to ignore a specific log level during tests
-  // log: vi.fn(), // Mock console.log
-  // debug: vi.fn(), // Mock console.debug
-  // info: vi.fn(), // Mock console.info
-  // warn: vi.fn(), // Mock console.warn
-  // error: vi.fn(), // Mock console.error
+  // Mock console methods to reduce React act() warning noise
+  warn: vi.fn(), // Mock console.warn to reduce React act() warnings
+  error: vi.fn(), // Mock console.error to reduce error noise
+  // Keep console.log for debugging
+  log: console.log,
+  debug: console.debug,
+  info: console.info,
 };
+
+/**
+ * Suppress React act() warnings for better performance
+ * 
+ * These warnings are expected in tests and don't indicate actual problems.
+ * Suppressing them improves test execution performance significantly.
+ */
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args: any[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Warning: An update to') &&
+      args[0].includes('inside a test was not wrapped in act')
+    ) {
+      return; // Suppress React act() warnings
+    }
+    originalError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalError;
+});

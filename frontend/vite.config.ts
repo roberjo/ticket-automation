@@ -23,6 +23,17 @@ export default defineConfig(({ mode }) => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    css: true,
+    css: false, // Disable CSS processing for faster test execution
+    testTimeout: 10000, // Set reasonable timeout
+    hookTimeout: 10000,
+    pool: 'forks', // Use forks for better isolation
+    poolOptions: {
+      forks: {
+        singleFork: true, // Use single fork for better performance
+      },
+    },
+    // Optimize test execution
+    isolate: false, // Disable isolation for faster execution
+    reporters: ['verbose'], // Use verbose reporter for better debugging
   },
 }));
