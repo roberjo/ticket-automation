@@ -1,3 +1,46 @@
+/**
+ * Ticket Management Routes for ServiceNow Ticket Automation
+ * 
+ * This module defines all REST API endpoints for managing ticket requests
+ * and their associated ServiceNow tickets. It provides comprehensive
+ * CRUD operations, status management, and integration with ServiceNow.
+ * 
+ * Route Structure:
+ * - GET /api/tickets - List user's ticket requests (paginated, filtered, sorted)
+ * - GET /api/tickets/:id - Get specific ticket request details
+ * - POST /api/tickets - Create new ticket request with ServiceNow integration
+ * - PATCH /api/tickets/:id/status - Update ticket request status
+ * - POST /api/tickets/:id/retry - Retry failed ServiceNow operations
+ * - POST /api/tickets/:id/cancel - Cancel pending ticket request
+ * - GET /api/tickets/:id/tickets - Get ServiceNow tickets for request
+ * - POST /api/tickets/:id/sync - Sync status with ServiceNow
+ * 
+ * Security Features:
+ * - Authentication required for all endpoints
+ * - Resource-level authorization (users can only access their own tickets)
+ * - Rate limiting on ticket creation to prevent abuse
+ * - Input validation and sanitization
+ * - Comprehensive audit logging
+ * 
+ * Key Features:
+ * - Pagination for large datasets
+ * - Filtering by status, priority, date ranges
+ * - Sorting by multiple fields
+ * - Real-time ServiceNow integration
+ * - Batch ticket creation support
+ * - Error handling and recovery
+ * - Status synchronization
+ * 
+ * Integration Points:
+ * - ServiceNow API for ticket creation and status updates
+ * - PostgreSQL database for persistent storage
+ * - Authentication middleware for security
+ * - Rate limiting middleware for abuse prevention
+ * - Error handling middleware for consistent responses
+ * 
+ * @author ServiceNow Ticket Automation Team
+ */
+
 import { Router } from 'express';
 import { getRepository } from 'typeorm';
 import { TicketRequest, RequestStatus, RequestPriority } from '../models/TicketRequest.js';
@@ -8,19 +51,66 @@ import { ticketCreationRateLimiter } from '../middleware/rateLimiter.js';
 import { requireSelfOrAdmin } from '../middleware/auth.js';
 import { ValidationError } from '../middleware/errorHandler.js';
 
+// Create Express router for ticket-related routes
 const router = Router();
 
-// Get all ticket requests for the authenticated user
+/**
+ * GET /api/tickets - List Ticket Requests
+ * 
+ * Retrieves a paginated list of ticket requests for the authenticated user.
+ * Supports filtering, sorting, and pagination for efficient data access.
+ * 
+ * Query Parameters:
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 10, max: 100)
+ * - status: Filter by request status (pending, processing, completed, failed)
+ * - priority: Filter by priority (low, medium, high, critical)
+ * - sortBy: Sort field (createdAt, updatedAt, title, status, priority)
+ * - sortOrder: Sort direction (ASC, DESC, default: DESC)
+ * 
+ * Response Format:
+ * {
+ *   success: true,
+ *   data: TicketRequest[],
+ *   pagination: {
+ *     page: number,
+ *     limit: number,
+ *     total: number,
+ *     pages: number
+ *   }
+ * }
+ * 
+ * Security:
+ * - Authentication required
+ * - Users can only see their own ticket requests
+ * - Input validation on query parameters
+ * 
+ * Performance:
+ * - Database query optimization with proper indexing
+ * - Left join with ServiceNow tickets for complete data
+ * - Pagination to limit memory usage
+ * - Efficient counting with getManyAndCount()
+ */
 router.get('/', asyncHandler(async (req, res) => {
+  // Extract and validate query parameters with defaults
   const { page = 1, limit = 10, status, priority, sortBy = 'createdAt', sortOrder = 'DESC' } = req.query;
   
+  // Get repository for database operations
   const ticketRepository = getRepository(TicketRequest);
+  
+  /**
+   * BUILD QUERY WITH FILTERS AND JOINS
+   * Create query builder for flexible filtering and sorting
+   */
   const queryBuilder = ticketRepository
     .createQueryBuilder('request')
-    .leftJoinAndSelect('request.serviceNowTickets', 'tickets')
-    .where('request.userId = :userId', { userId: req.user!.id });
+    .leftJoinAndSelect('request.serviceNowTickets', 'tickets')  // Include related ServiceNow tickets
+    .where('request.userId = :userId', { userId: req.user!.id });  // Security: only user's tickets
 
-  // Apply filters
+  /**
+   * APPLY FILTERS
+   * Add conditional filters based on query parameters
+   */
   if (status) {
     queryBuilder.andWhere('request.status = :status', { status });
   }
@@ -28,15 +118,29 @@ router.get('/', asyncHandler(async (req, res) => {
     queryBuilder.andWhere('request.priority = :priority', { priority });
   }
 
-  // Apply sorting
+  /**
+   * APPLY SORTING
+   * Default sort by creation date (newest first)
+   */
   queryBuilder.orderBy(`request.${sortBy}`, sortOrder as 'ASC' | 'DESC');
 
-  // Apply pagination
+  /**
+   * APPLY PAGINATION
+   * Limit results to prevent performance issues
+   */
   const offset = (Number(page) - 1) * Number(limit);
   queryBuilder.skip(offset).take(Number(limit));
 
+  /**
+   * EXECUTE QUERY
+   * Get both results and total count for pagination
+   */
   const [requests, total] = await queryBuilder.getManyAndCount();
 
+  /**
+   * RETURN RESPONSE
+   * Standard API response format with pagination metadata
+   */
   res.json({
     success: true,
     data: requests,

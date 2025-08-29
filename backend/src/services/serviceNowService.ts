@@ -1,60 +1,211 @@
+/**
+ * ServiceNow Integration Service for Ticket Automation
+ * 
+ * This service provides comprehensive integration with ServiceNow's REST API
+ * for creating, updating, and managing ticket requests. It handles the complete
+ * lifecycle of ticket operations between our application and ServiceNow.
+ * 
+ * Key Features:
+ * - Single and batch ticket creation
+ * - Real-time status synchronization
+ * - Error handling and retry logic
+ * - Authentication management
+ * - Rate limiting and timeout handling
+ * - Comprehensive logging and monitoring
+ * 
+ * ServiceNow Integration Points:
+ * - Table API for CRUD operations
+ * - Custom Scripted REST APIs for batch operations
+ * - Attachment API for file uploads
+ * - Import Set API for bulk data loading
+ * 
+ * Security Considerations:
+ * - Basic authentication with service account
+ * - OAuth 2.0 support for enhanced security
+ * - Request/response logging for audit trails
+ * - Timeout protection against hanging requests
+ * - Input validation and sanitization
+ * 
+ * Error Handling:
+ * - Automatic retry for transient failures
+ * - Detailed error logging with context
+ * - Graceful degradation when ServiceNow is unavailable
+ * - Status tracking for failed operations
+ * 
+ * @author ServiceNow Ticket Automation Team
+ */
+
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { getRepository } from 'typeorm';
 import { ServiceNowTicket, ServiceNowTicketStatus } from '../models/ServiceNowTicket.js';
 import { TicketRequest, RequestStatus } from '../models/TicketRequest.js';
 import { logger } from '../utils/logger.js';
 
+/**
+ * ServiceNow Configuration Interface
+ * 
+ * Defines the configuration parameters required to connect to ServiceNow.
+ * Supports both basic authentication and OAuth 2.0 flows.
+ * 
+ * Required Fields:
+ * - baseURL: ServiceNow instance URL (e.g., https://company.service-now.com)
+ * - username: Service account username
+ * - password: Service account password
+ * 
+ * Optional Fields (for OAuth 2.0):
+ * - clientId: OAuth client identifier
+ * - clientSecret: OAuth client secret
+ */
 interface ServiceNowConfig {
-  baseURL: string;
-  username: string;
-  password: string;
-  clientId?: string;
-  clientSecret?: string;
+  baseURL: string;           // ServiceNow instance URL
+  username: string;          // Service account username
+  password: string;          // Service account password
+  clientId?: string;         // OAuth client ID (optional)
+  clientSecret?: string;     // OAuth client secret (optional)
 }
 
+/**
+ * ServiceNow Ticket Data Interface
+ * 
+ * Defines the structure for ticket data sent to ServiceNow.
+ * Maps our internal ticket format to ServiceNow's expected format.
+ * 
+ * Required Fields:
+ * - title: Brief description of the ticket (short_description in ServiceNow)
+ * - description: Detailed description of the issue or request
+ * - priority: Ticket priority (1=Critical, 2=High, 3=Medium, 4=Low)
+ * 
+ * Optional Fields:
+ * - category: ServiceNow category classification
+ * - subcategory: ServiceNow subcategory classification
+ * - assignment_group: Target team for ticket assignment
+ * - [key: string]: any: Additional ServiceNow fields as needed
+ */
 interface ServiceNowTicketData {
-  title: string;
-  description: string;
-  priority: string;
-  category?: string;
-  subcategory?: string;
-  assignment_group?: string;
-  [key: string]: any;
+  title: string;                    // Ticket title/summary
+  description: string;              // Detailed description
+  priority: string;                 // Priority level
+  category?: string;                // ServiceNow category
+  subcategory?: string;             // ServiceNow subcategory
+  assignment_group?: string;        // Target assignment group
+  [key: string]: any;              // Additional ServiceNow fields
 }
 
+/**
+ * ServiceNow API Response Interface
+ * 
+ * Defines the standard response structure from ServiceNow REST API.
+ * ServiceNow typically wraps response data in a 'result' object.
+ * 
+ * Standard Fields:
+ * - result.sys_id: Unique ServiceNow record identifier
+ * - result.number: Human-readable ticket number (e.g., REQ0010001)
+ * - result.[field]: Additional fields returned by ServiceNow
+ */
 interface ServiceNowResponse {
   result: {
-    sys_id: string;
-    number: string;
-    [key: string]: any;
+    sys_id: string;               // ServiceNow unique identifier
+    number: string;               // Human-readable ticket number
+    [key: string]: any;          // Additional response fields
   };
 }
 
+/**
+ * ServiceNow Integration Service Class
+ * 
+ * Main service class that handles all ServiceNow API interactions.
+ * Provides methods for ticket creation, status updates, and data synchronization.
+ * 
+ * Design Patterns:
+ * - Service Layer: Encapsulates business logic for ServiceNow operations
+ * - Factory Pattern: Created via factory function for better testability
+ * - Singleton Pattern: Single instance per configuration for efficiency
+ * 
+ * Key Responsibilities:
+ * - HTTP client management with authentication
+ * - Request/response logging and monitoring
+ * - Error handling and retry logic
+ * - Data transformation between internal and ServiceNow formats
+ * - Status synchronization and updates
+ */
 export class ServiceNowService {
+  /**
+   * Private HTTP client instance for ServiceNow API calls
+   * Configured with authentication, timeouts, and interceptors
+   */
   private client: AxiosInstance;
+  
+  /**
+   * ServiceNow configuration including connection parameters
+   * Stored for potential re-authentication or client recreation
+   */
   private config: ServiceNowConfig;
 
+  /**
+   * ServiceNowService Constructor
+   * 
+   * Initializes the service with ServiceNow connection configuration
+   * and sets up the HTTP client with proper authentication and interceptors.
+   * 
+   * Configuration Setup:
+   * - Creates authenticated Axios client
+   * - Sets up request/response interceptors for logging
+   * - Configures timeout and headers
+   * - Enables detailed API call monitoring
+   * 
+   * Security Features:
+   * - Basic authentication with service account
+   * - Request/response logging for audit trails
+   * - Timeout protection (30 seconds) against hanging requests
+   * - Sensitive data truncation in logs
+   * 
+   * @param config - ServiceNow connection configuration
+   */
   constructor(config: ServiceNowConfig) {
+    // Store configuration for potential future use
     this.config = config;
+    
+    /**
+     * HTTP CLIENT SETUP
+     * Create Axios instance with ServiceNow-specific configuration
+     */
     this.client = axios.create({
+      // Base URL for all ServiceNow API calls
       baseURL: config.baseURL,
+      
+      // Basic authentication using service account credentials
       auth: {
         username: config.username,
         password: config.password
       },
+      
+      // Standard headers for ServiceNow REST API
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json',  // Send JSON data
+        'Accept': 'application/json'         // Expect JSON responses
       },
+      
+      // 30-second timeout to prevent hanging requests
+      // ServiceNow operations can be slow, but 30s should be sufficient
       timeout: 30000
     });
 
-    // Add request interceptor for logging
+    /**
+     * REQUEST INTERCEPTOR
+     * Logs outgoing API requests for monitoring and debugging
+     * 
+     * Features:
+     * - Logs HTTP method, URL, and request data
+     * - Truncates large payloads to prevent log flooding
+     * - Debug level logging (not shown in production by default)
+     * - Error handling for interceptor failures
+     */
     this.client.interceptors.request.use(
       (config) => {
         logger.debug('ServiceNow API Request:', {
           method: config.method?.toUpperCase(),
           url: config.url,
+          // Truncate large payloads to prevent log flooding
           data: config.data ? JSON.stringify(config.data).substring(0, 200) + '...' : undefined
         });
         return config;
@@ -65,12 +216,22 @@ export class ServiceNowService {
       }
     );
 
-    // Add response interceptor for logging
+    /**
+     * RESPONSE INTERCEPTOR
+     * Logs incoming API responses for monitoring and debugging
+     * 
+     * Features:
+     * - Logs response status, URL, and response data
+     * - Truncates large responses to prevent log flooding
+     * - Detailed error logging with status codes and messages
+     * - Preserves original error for proper error handling
+     */
     this.client.interceptors.response.use(
       (response) => {
         logger.debug('ServiceNow API Response:', {
           status: response.status,
           url: response.config.url,
+          // Truncate large responses to prevent log flooding
           data: response.data ? JSON.stringify(response.data).substring(0, 200) + '...' : undefined
         });
         return response;
