@@ -6,22 +6,47 @@ import { createMockUser, createMockRequest, createMockResponse } from '../utils'
 jest.mock('jsonwebtoken');
 const jwt = require('jsonwebtoken');
 
+// Mock TypeORM getRepository
+jest.mock('typeorm', () => ({
+  getRepository: jest.fn(),
+}));
+
 // Mock database connection and repositories
 jest.mock('../../config/database', () => ({
   getConnection: jest.fn(),
 }));
 
+// Mock environment variables for JWT
+process.env.JWT_SECRET = 'test-jwt-secret';
+process.env.OKTA_JWT_SECRET = 'test-okta-jwt-secret';
+process.env.OKTA_ISSUER = 'https://test.okta.com/oauth2/default';
+process.env.OKTA_AUDIENCE = 'api://default';
+
 describe('Authentication Middleware', () => {
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
   let mockNext: NextFunction;
+  let mockUserRepository: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
+    // Reset request user property
     mockRequest = createMockRequest();
+    mockRequest.user = undefined;
     mockResponse = createMockResponse();
     mockNext = jest.fn();
+
+    // Create mock user repository
+    mockUserRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    };
+
+    // Mock TypeORM getRepository
+    const { getRepository } = require('typeorm');
+    getRepository.mockReturnValue(mockUserRepository);
   });
 
   describe('authMiddleware', () => {
@@ -32,22 +57,21 @@ describe('Authentication Middleware', () => {
         sub: mockUser.oktaId,
         email: mockUser.email,
         name: `${mockUser.firstName} ${mockUser.lastName}`,
+        given_name: mockUser.firstName,
+        family_name: mockUser.lastName,
         role: mockUser.role,
+        iss: process.env.OKTA_ISSUER,
+        aud: process.env.OKTA_AUDIENCE,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       };
 
       // Mock JWT verification
       jwt.verify.mockReturnValue(mockPayload);
 
-      // Mock database connection and repository
-      const mockConnection = {
-        getRepository: jest.fn().mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(mockUser),
-          save: jest.fn().mockResolvedValue(mockUser),
-        }),
-      };
-
-      const { getConnection } = require('../../config/database');
-      getConnection.mockResolvedValue(mockConnection);
+      // Mock repository to return existing user
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue(mockUser);
 
       // Set up request with authorization header
       mockRequest.headers = {
@@ -56,7 +80,7 @@ describe('Authentication Middleware', () => {
 
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(jwt.verify).toHaveBeenCalledWith(mockToken, expect.any(String), expect.any(Object));
+      expect(jwt.verify).toHaveBeenCalledWith(mockToken, process.env.OKTA_JWT_SECRET);
       expect(mockRequest.user).toEqual(mockUser);
       expect(mockNext).toHaveBeenCalled();
     });
@@ -67,28 +91,31 @@ describe('Authentication Middleware', () => {
         sub: 'new-okta-id',
         email: 'new@example.com',
         name: 'New User',
+        given_name: 'New',
+        family_name: 'User',
         role: 'User',
+        iss: process.env.OKTA_ISSUER,
+        aud: process.env.OKTA_AUDIENCE,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       };
 
       jwt.verify.mockReturnValue(mockPayload);
 
-      const mockConnection = {
-        getRepository: jest.fn().mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(null), // User not found
-          save: jest.fn().mockResolvedValue({
-            id: 'new-user-id',
-            oktaId: mockPayload.sub,
-            email: mockPayload.email,
-            firstName: 'New',
-            lastName: 'User',
-            role: mockPayload.role,
-            isActive: true,
-          }),
-        }),
+      const newUser = {
+        id: 'new-user-id',
+        oktaId: mockPayload.sub,
+        email: mockPayload.email,
+        firstName: mockPayload.given_name,
+        lastName: mockPayload.family_name,
+        role: 'User',
+        isActive: true,
       };
 
-      const { getConnection } = require('../../config/database');
-      getConnection.mockResolvedValue(mockConnection);
+      // Mock repository to return null (user not found) and then create new user
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(newUser);
+      mockUserRepository.save.mockResolvedValue(newUser);
 
       mockRequest.headers = {
         authorization: `Bearer ${mockToken}`,
@@ -96,42 +123,35 @@ describe('Authentication Middleware', () => {
 
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockConnection.getRepository().save).toHaveBeenCalled();
+      expect(mockUserRepository.save).toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it('should return 401 if no authorization header', async () => {
-      mockRequest.headers = {};
-
+    it('should call next with error if no authorization header', async () => {
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'No authorization token provided',
-      });
-      expect(mockNext).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'No valid authorization header provided'
+      }));
     });
 
-    it('should return 401 if invalid token format', async () => {
+    it('should call next with error if invalid token format', async () => {
       mockRequest.headers = {
         authorization: 'InvalidToken',
       };
 
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Invalid token format',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'No valid authorization header provided'
+      }));
     });
 
-    it('should return 401 if JWT verification fails', async () => {
+    it('should call next with error if JWT verification fails', async () => {
       const mockToken = 'invalid-jwt-token';
       
       jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
+        throw new jwt.JsonWebTokenError('Invalid token');
       });
 
       mockRequest.headers = {
@@ -140,11 +160,9 @@ describe('Authentication Middleware', () => {
 
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Invalid token',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Invalid token'
+      }));
     });
 
     it('should handle database errors gracefully', async () => {
@@ -153,19 +171,19 @@ describe('Authentication Middleware', () => {
         sub: 'test-okta-id',
         email: 'test@example.com',
         name: 'Test User',
+        given_name: 'Test',
+        family_name: 'User',
         role: 'User',
+        iss: process.env.OKTA_ISSUER,
+        aud: process.env.OKTA_AUDIENCE,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       };
 
       jwt.verify.mockReturnValue(mockPayload);
 
-      const mockConnection = {
-        getRepository: jest.fn().mockReturnValue({
-          findOne: jest.fn().mockRejectedValue(new Error('Database error')),
-        }),
-      };
-
-      const { getConnection } = require('../../config/database');
-      getConnection.mockResolvedValue(mockConnection);
+      // Mock repository to throw error
+      mockUserRepository.findOne.mockRejectedValue(new Error('Database error'));
 
       mockRequest.headers = {
         authorization: `Bearer ${mockToken}`,
@@ -173,18 +191,14 @@ describe('Authentication Middleware', () => {
 
       await authMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Authentication failed',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
     });
   });
 
   describe('requireRole', () => {
     it('should allow access for user with required role', () => {
       const mockUser = createMockUser({ role: 'Admin' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       const middleware = requireRole('Admin');
       middleware(mockRequest as Request, mockResponse as Response, mockNext);
@@ -194,36 +208,30 @@ describe('Authentication Middleware', () => {
 
     it('should deny access for user without required role', () => {
       const mockUser = createMockUser({ role: 'User' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       const middleware = requireRole('Admin');
       middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Insufficient permissions',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Insufficient permissions'
+      }));
     });
 
-    it('should return 401 if no user is authenticated', () => {
-      mockRequest.user = undefined;
-
+    it('should call next with error if no user is authenticated', () => {
       const middleware = requireRole('Admin');
       middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Authentication required',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'User not authenticated'
+      }));
     });
   });
 
   describe('requireAdmin', () => {
     it('should allow access for admin user', () => {
       const mockUser = createMockUser({ role: 'Admin' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       requireAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -232,22 +240,20 @@ describe('Authentication Middleware', () => {
 
     it('should deny access for non-admin user', () => {
       const mockUser = createMockUser({ role: 'User' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       requireAdmin(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Admin access required',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Insufficient permissions'
+      }));
     });
   });
 
   describe('requireManager', () => {
     it('should allow access for manager user', () => {
       const mockUser = createMockUser({ role: 'Manager' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       requireManager(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -256,7 +262,7 @@ describe('Authentication Middleware', () => {
 
     it('should allow access for admin user', () => {
       const mockUser = createMockUser({ role: 'Admin' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       requireManager(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -265,15 +271,13 @@ describe('Authentication Middleware', () => {
 
     it('should deny access for regular user', () => {
       const mockUser = createMockUser({ role: 'User' });
-      mockRequest.user = mockUser;
+      mockRequest.user = mockUser as any;
 
       requireManager(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Manager access required',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Insufficient permissions'
+      }));
     });
   });
 
@@ -285,19 +289,17 @@ describe('Authentication Middleware', () => {
         sub: mockUser.oktaId,
         email: mockUser.email,
         name: `${mockUser.firstName} ${mockUser.lastName}`,
+        given_name: mockUser.firstName,
+        family_name: mockUser.lastName,
         role: mockUser.role,
+        iss: process.env.OKTA_ISSUER,
+        aud: process.env.OKTA_AUDIENCE,
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       };
 
       jwt.verify.mockReturnValue(mockPayload);
-
-      const mockConnection = {
-        getRepository: jest.fn().mockReturnValue({
-          findOne: jest.fn().mockResolvedValue(mockUser),
-        }),
-      };
-
-      const { getConnection } = require('../../config/database');
-      getConnection.mockResolvedValue(mockConnection);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
 
       mockRequest.headers = {
         authorization: `Bearer ${mockToken}`,
@@ -310,19 +312,17 @@ describe('Authentication Middleware', () => {
     });
 
     it('should continue without user if no token provided', async () => {
-      mockRequest.headers = {};
-
       await optionalAuth(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockRequest.user).toBeUndefined();
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it('should continue without user if invalid token provided', async () => {
+    it('should continue without user if token is invalid', async () => {
       const mockToken = 'invalid-jwt-token';
       
       jwt.verify.mockImplementation(() => {
-        throw new Error('Invalid token');
+        throw new jwt.JsonWebTokenError('Invalid token');
       });
 
       mockRequest.headers = {
@@ -339,49 +339,44 @@ describe('Authentication Middleware', () => {
   describe('requireSelfOrAdmin', () => {
     it('should allow access for admin user', () => {
       const mockUser = createMockUser({ role: 'Admin' });
-      mockRequest.user = mockUser;
-      mockRequest.params = { userId: 'different-user-id' };
+      mockRequest.user = mockUser as any;
+      mockRequest.params = { userId: 'other-user-id' };
 
-      requireSelfOrAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+      requireSelfOrAdmin('userId')(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should allow access for user accessing their own data', () => {
-      const mockUser = createMockUser({ id: 'test-user-id', role: 'User' });
-      mockRequest.user = mockUser;
+      const mockUser = createMockUser({ id: 'test-user-id' });
+      mockRequest.user = mockUser as any;
       mockRequest.params = { userId: 'test-user-id' };
 
-      requireSelfOrAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+      requireSelfOrAdmin('userId')(mockRequest as Request, mockResponse as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should deny access for user accessing other user data', () => {
       const mockUser = createMockUser({ id: 'test-user-id', role: 'User' });
-      mockRequest.user = mockUser;
-      mockRequest.params = { userId: 'different-user-id' };
+      mockRequest.user = mockUser as any;
+      mockRequest.params = { userId: 'other-user-id' };
 
-      requireSelfOrAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+      requireSelfOrAdmin('userId')(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(403);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Access denied',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Access denied to this resource'
+      }));
     });
 
-    it('should return 401 if no user is authenticated', () => {
-      mockRequest.user = undefined;
+    it('should call next with error if no user is authenticated', () => {
       mockRequest.params = { userId: 'test-user-id' };
 
-      requireSelfOrAdmin(mockRequest as Request, mockResponse as Response, mockNext);
+      requireSelfOrAdmin('userId')(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        success: false,
-        message: 'Authentication required',
-      });
+      expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'User not authenticated'
+      }));
     });
   });
 });

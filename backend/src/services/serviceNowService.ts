@@ -350,11 +350,19 @@ export class ServiceNowService {
   }
 }
 
-// Create singleton instance
-export const serviceNowService = new ServiceNowService({
-  baseURL: process.env.SERVICENOW_BASE_URL || '',
-  username: process.env.SERVICENOW_USERNAME || '',
-  password: process.env.SERVICENOW_PASSWORD || '',
-  clientId: process.env.SERVICENOW_CLIENT_ID,
-  clientSecret: process.env.SERVICENOW_CLIENT_SECRET
-});
+// Factory function to create ServiceNow service instance
+let serviceNowServiceInstance: ServiceNowService | null = null;
+
+export const getServiceNowService = (config?: ServiceNowConfig): ServiceNowService => {
+  if (!serviceNowServiceInstance) {
+    const serviceConfig = config || {
+      baseURL: process.env.SERVICENOW_BASE_URL || '',
+      username: process.env.SERVICENOW_USERNAME || '',
+      password: process.env.SERVICENOW_PASSWORD || '',
+      clientId: process.env.SERVICENOW_CLIENT_ID,
+      clientSecret: process.env.SERVICENOW_CLIENT_SECRET
+    };
+    serviceNowServiceInstance = new ServiceNowService(serviceConfig);
+  }
+  return serviceNowServiceInstance;
+};

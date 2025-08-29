@@ -2,11 +2,7 @@ import { DataSource, Repository } from 'typeorm';
 import { User, TicketRequest, ServiceNowTicket } from '../../models';
 import { createMockUser, createMockTicketRequest, createMockServiceNowTicket } from '../utils';
 
-// Mock TypeORM
-jest.mock('typeorm', () => ({
-  DataSource: jest.fn(),
-  Repository: jest.fn(),
-}));
+// TypeORM is mocked globally via moduleNameMapper
 
 describe('Database Operations', () => {
   let mockDataSource: jest.Mocked<DataSource>;

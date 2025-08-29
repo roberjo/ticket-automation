@@ -54,7 +54,7 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Partial<Req
   body: {},
   params: {},
   query: {},
-  user: createMockUser(),
+  user: undefined, // Don't set user by default for auth tests
   ...overrides,
 } as Partial<Request>);
 

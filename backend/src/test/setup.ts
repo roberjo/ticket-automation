@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { DataSource } from 'typeorm';
+import 'reflect-metadata';
 
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
@@ -15,35 +15,10 @@ process.env.DB_NAME = 'ticket_automation_test';
 process.env.OKTA_ISSUER = 'https://test.okta.com/oauth2/default';
 process.env.OKTA_AUDIENCE = 'api://default';
 process.env.SERVICENOW_INSTANCE = 'test-instance.service-now.com';
+process.env.OKTA_JWT_SECRET = 'test-okta-jwt-secret';
 
 // Global test timeout
 jest.setTimeout(30000);
-
-// Mock TypeORM DataSource
-jest.mock('../config/database', () => ({
-  getConnection: jest.fn(),
-  config: {
-    type: 'postgres',
-    host: 'localhost',
-    port: 5432,
-    username: 'test_user',
-    password: 'test_password',
-    database: 'ticket_automation_test',
-    entities: [],
-    synchronize: true,
-    logging: false,
-  },
-}));
-
-// Mock Winston logger
-jest.mock('../utils/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
 
 // Global test utilities
 global.testUtils = {
